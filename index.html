@@ -239,7 +239,6 @@
       color: var(--navy);
       margin-bottom: 8px;
     }
-    input[type="tel"],
     input[type="number"] {
       width: 100%;
       padding: 12px 16px;
@@ -252,7 +251,6 @@
       transition: border-color .25s, box-shadow .25s;
       outline: none;
     }
-    input[type="tel"]:focus,
     input[type="number"]:focus {
       border-color: var(--gold);
       box-shadow: 0 0 0 3px rgba(184,146,42,.12);
@@ -380,12 +378,7 @@
   <!-- FORM CARD -->
   <div class="form-card">
     <h2>Submit Your Prayer Count</h2>
-    <p class="form-sub">Enter the number of prayers you have recited and your mobile number.</p>
-
-    <div class="field">
-      <label for="mobile">Mobile Number</label>
-      <input type="tel" id="mobile" placeholder="9876543210" maxlength="15" />
-    </div>
+    <p class="form-sub">Enter the number of prayers you have recited.</p>
     <div class="field">
       <label for="pcount">Number of Prayers Recited</label>
       <input type="number" id="pcount" placeholder="e.g. 10" min="1" max="10000" />
@@ -464,14 +457,8 @@
 
   /* ── SUBMIT PRAYER ───────────────────────────────────── */
   async function submitPrayer() {
-    const raw    = document.getElementById('mobile').value.trim();
-    const mobile = raw.replace(/\D/g, '');   // digits only
     const count  = parseInt(document.getElementById('pcount').value, 10);
     const btn    = document.getElementById('submitBtn');
-
-    if (mobile.length < 10 || mobile.length > 15) {
-      toast('Please enter a valid mobile number.', true); return;
-    }
     if (!count || count < 1) {
       toast('Please enter a prayer count of at least 1.', true); return;
     }
@@ -483,13 +470,12 @@
       const res  = await fetch(SCRIPT_URL, {
         method:  'POST',
         headers: { 'Content-Type': 'text/plain' },   // avoids CORS preflight
-        body:    JSON.stringify({ mobile, count })
+        body:    JSON.stringify({ count })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
       toast('Thank you! Your prayers have been recorded. 🙏');
-      document.getElementById('mobile').value = '';
       document.getElementById('pcount').value = '';
       loadTotal();
     } catch (e) {
