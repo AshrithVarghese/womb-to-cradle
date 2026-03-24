@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kotytekad Forane CLC – Prayer Counter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    /* ─── TOKENS ─────────────────────────────────────────── */
+    :root {
+      --cream:   #f9f4eb;
+      --parchment: #f0e8d5;
+      --gold:    #b8922a;
+      --gold-lt: #d4a93c;
+      --navy:    #1a2340;
+      --ink:     #2c2c2c;
+      --muted:   #7a6e5f;
+      --white:   #ffffff;
+      --border:  #ddd0b0;
+      --shadow:  0 8px 40px rgba(26,35,64,.13);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 17px;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    /* ─── BACKGROUND PATTERN ─────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        radial-gradient(circle at 20% 10%, rgba(184,146,42,.07) 0%, transparent 50%),
+        radial-gradient(circle at 80% 90%, rgba(26,35,64,.06) 0%, transparent 50%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ─── HEADER ─────────────────────────────────────────── */
+    header {
+      position: relative; z-index: 10;
+      background: var(--navy);
+      text-align: center;
+      padding: 38px 24px 32px;
+      border-bottom: 3px solid var(--gold);
+    }
+    .header-ornament {
+      display: block;
+      font-size: 22px;
+      color: var(--gold-lt);
+      letter-spacing: 8px;
+      margin-bottom: 10px;
+      opacity: .75;
+    }
+    header h1 {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(1.35rem, 4vw, 2.3rem);
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: .06em;
+      line-height: 1.25;
+    }
+    header h1 span {
+      display: block;
+      font-size: clamp(.85rem, 2.2vw, 1.05rem);
+      font-weight: 400;
+      color: var(--gold-lt);
+      letter-spacing: .18em;
+      margin-top: 6px;
+      font-family: 'EB Garamond', serif;
+      font-style: italic;
+    }
+    .header-rule {
+      width: 80px; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      margin: 16px auto 0;
+    }
+
+    /* ─── MAIN WRAPPER ───────────────────────────────────── */
+    main {
+      position: relative; z-index: 1;
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 40px 20px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 44px;
+    }
+
+    /* ─── TOTAL COUNTER BANNER ───────────────────────────── */
+    .counter-banner {
+      background: var(--navy);
+      border-radius: 4px;
+      border: 1.5px solid var(--gold);
+      padding: 28px 32px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .counter-banner p {
+      font-family: 'EB Garamond', serif;
+      font-style: italic;
+      color: rgba(255,255,255,.65);
+      font-size: .95rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .counter-num {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(2.6rem, 8vw, 4.2rem);
+      font-weight: 700;
+      color: var(--gold-lt);
+      line-height: 1;
+      letter-spacing: .04em;
+    }
+    .counter-label {
+      font-family: 'EB Garamond', serif;
+      font-size: 1rem;
+      color: rgba(255,255,255,.5);
+      margin-top: 6px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    /* ─── CAROUSEL ───────────────────────────────────────── */
+    .carousel-wrap {
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1.5px solid var(--border);
+      box-shadow: var(--shadow);
+      position: relative;
+      width: 100%;
+      background: var(--navy);
+    }
+    /* Stack all slides in the same grid cell; height = tallest image */
+    .carousel-slides {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .carousel-slide {
+      grid-area: 1 / 1;          /* all slides overlap */
+      opacity: 0;
+      transition: opacity .85s ease;
+      pointer-events: none;
+      position: relative;
+    }
+    .carousel-slide.active {
+      opacity: 1;
+      pointer-events: auto;
+      z-index: 1;
+    }
+    .carousel-slide img {
+      width: 100%;
+      height: auto;              /* natural image height */
+      display: block;
+      max-width: 100%;
+    }
+    /* Overlay caption */
+    .slide-caption {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(26,35,64,.72));
+      padding: 20px 24px 18px;
+      font-family: 'EB Garamond', serif;
+      font-style: italic;
+      font-size: 1.05rem;
+      color: rgba(255,255,255,.9);
+      letter-spacing: .04em;
+    }
+    .carousel-dots {
+      position: absolute; bottom: 14px; right: 18px;
+      display: flex; gap: 8px;
+      z-index: 2;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,.35);
+      transition: background .3s, transform .3s;
+    }
+    .dot.active { background: var(--gold-lt); transform: scale(1.25); }
+
+    @media (max-width: 520px) {
+      .slide-caption { font-size: .9rem; padding: 14px 14px 12px; }
+    }
+
+    /* ─── SECTION DIVIDER ────────────────────────────────── */
+    .divider {
+      display: flex; align-items: center; gap: 16px;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1;
+      height: 1px; background: var(--border);
+    }
+    .divider span {
+      font-family: 'Cinzel', serif;
+      font-size: .75rem;
+      color: var(--gold);
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* ─── FORM CARD ──────────────────────────────────────── */
+    .form-card {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      padding: 40px 40px 36px;
+      box-shadow: var(--shadow);
+    }
+    .form-card h2 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--navy);
+      letter-spacing: .08em;
+      margin-bottom: 6px;
+    }
+    .form-card .form-sub {
+      font-size: .95rem;
+      color: var(--muted);
+      font-style: italic;
+      margin-bottom: 30px;
+    }
+    .field {
+      margin-bottom: 22px;
+    }
+    label {
+      display: block;
+      font-family: 'Cinzel', serif;
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--navy);
+      margin-bottom: 8px;
+    }
+    input[type="tel"],
+    input[type="number"] {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 3px;
+      font-family: 'EB Garamond', serif;
+      font-size: 1.05rem;
+      color: var(--ink);
+      background: var(--cream);
+      transition: border-color .25s, box-shadow .25s;
+      outline: none;
+    }
+    input[type="tel"]:focus,
+    input[type="number"]:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(184,146,42,.12);
+      background: var(--white);
+    }
+    input::placeholder { color: #bbb0a0; }
+
+    /* Remove number spinners */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type="number"] { -moz-appearance: textfield; }
+
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--navy);
+      color: var(--white);
+      border: none;
+      border-radius: 3px;
+      font-family: 'Cinzel', serif;
+      font-size: .82rem;
+      font-weight: 600;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .25s, transform .15s;
+      margin-top: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .submit-btn::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,.08));
+    }
+    .submit-btn:hover { background: #263660; transform: translateY(-1px); }
+    .submit-btn:active { transform: translateY(0); }
+    .submit-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+    /* ─── TOAST ──────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--navy);
+      color: var(--white);
+      font-family: 'EB Garamond', serif;
+      font-size: .98rem;
+      padding: 12px 28px;
+      border-radius: 2px;
+      border-left: 3px solid var(--gold-lt);
+      box-shadow: 0 6px 30px rgba(0,0,0,.2);
+      opacity: 0;
+      transition: opacity .4s, transform .4s;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.error { border-left-color: #d9534f; }
+
+    /* ─── FOOTER ─────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 20px;
+      font-size: .82rem;
+      color: var(--muted);
+      font-style: italic;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────── */
+    @media (max-width: 520px) {
+      .form-card { padding: 28px 20px 24px; }
+      .counter-banner { padding: 22px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ HEADER ══════════════ -->
+<header>
+  <span class="header-ornament">✦ ✦ ✦</span>
+  <h1>
+    Kotytekad Forane CLC
+    <span>Christian Life Community</span>
+  </h1>
+  <div class="header-rule"></div>
+</header>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<main>
+
+  <!-- TOTAL COUNTER -->
+  <div class="counter-banner">
+    <p>Total Prayers Offered</p>
+    <div class="counter-num" id="totalCount">—</div>
+    <div class="counter-label">Prayers Recited</div>
+  </div>
+
+  <!-- CAROUSEL -->
+  <div class="carousel-wrap" id="carousel">
+    <div class="carousel-slides">
+
+      <div class="carousel-slide active" id="slide0">
+        <!-- Replace src with your actual image URLs -->
+        <img src="https://images.unsplash.com/photo-1548625149-720754973ccc?w=900&q=80"
+             alt="Prayer gathering" />
+        <div class="slide-caption">United in Faith &amp; Prayer</div>
+      </div>
+
+      <div class="carousel-slide" id="slide1">
+        <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=900&q=80"
+             alt="Community gathering" />
+        <div class="slide-caption">One Community, One Voice</div>
+      </div>
+
+    </div>
+    <div class="carousel-dots">
+      <div class="dot active" id="dot0"></div>
+      <div class="dot"        id="dot1"></div>
+    </div>
+  </div>
+
+  <!-- DIVIDER -->
+  <div class="divider"><span>Record Your Prayer</span></div>
+
+  <!-- FORM CARD -->
+  <div class="form-card">
+    <h2>Submit Your Prayer Count</h2>
+    <p class="form-sub">Enter the number of prayers you have recited and your mobile number.</p>
+
+    <div class="field">
+      <label for="mobile">Mobile Number</label>
+      <input type="tel" id="mobile" placeholder="+91 98765 43210" maxlength="15" />
+    </div>
+    <div class="field">
+      <label for="pcount">Number of Prayers Recited</label>
+      <input type="number" id="pcount" placeholder="e.g. 10" min="1" max="10000" />
+    </div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submitPrayer()">
+      Submit Count
+    </button>
+  </div>
+
+</main>
+
+<footer>
+  &copy; <span id="yr"></span> Kotytekad Forane CLC &nbsp;·&nbsp; All rights reserved
+</footer>
+
+<div id="toast"></div>
+
+<!-- ══════════════ SCRIPTS ══════════════ -->
+<script>
+  /* ── CONFIGURE SUPABASE ───────────────────────────────── */
+  const SUPABASE_URL  = 'YOUR_SUPABASE_URL';     // ← replace
+  const SUPABASE_KEY  = 'YOUR_SUPABASE_ANON_KEY'; // ← replace
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  /* ── FOOTER YEAR ─────────────────────────────────────── */
+  document.getElementById('yr').textContent = new Date().getFullYear();
+
+  /* ── CAROUSEL ────────────────────────────────────────── */
+  let current = 0;
+  const slideEls = [document.getElementById('slide0'), document.getElementById('slide1')];
+  const dots     = [document.getElementById('dot0'),   document.getElementById('dot1')];
+
+  function goTo(idx) {
+    slideEls[current].classList.remove('active');
+    dots[current].classList.remove('active');
+    current = idx;
+    slideEls[current].classList.add('active');
+    dots[current].classList.add('active');
+  }
+  setInterval(() => goTo((current + 1) % 2), 4500);
+
+  /* ── LOAD TOTAL COUNT ────────────────────────────────── */
+  async function loadTotal() {
+    try {
+      const { data, error } = await db
+        .from('prayer_counts')
+        .select('count');
+      if (error) throw error;
+      const total = data.reduce((s, r) => s + (r.count || 0), 0);
+      animateCount(total);
+    } catch (e) {
+      document.getElementById('totalCount').textContent = '—';
+    }
+  }
+
+  function animateCount(target) {
+    const el = document.getElementById('totalCount');
+    const dur = 1200, step = 16;
+    let val = 0, start = null;
+    function tick(ts) {
+      if (!start) start = ts;
+      const prog = Math.min((ts - start) / dur, 1);
+      val = Math.floor(prog * target);
+      el.textContent = val.toLocaleString();
+      if (prog < 1) requestAnimationFrame(tick);
+      else el.textContent = target.toLocaleString();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  /* ── SUBMIT PRAYER ───────────────────────────────────── */
+  async function submitPrayer() {
+    const raw    = document.getElementById('mobile').value.trim();
+    const mobile = raw.replace(/\D/g, '');            // digits only
+    const count  = parseInt(document.getElementById('pcount').value, 10);
+    const btn    = document.getElementById('submitBtn');
+
+    if (mobile.length < 10 || mobile.length > 15) {
+      toast('Please enter a valid mobile number.', true); return;
+    }
+    if (!count || count < 1) {
+      toast('Please enter a prayer count of at least 1.', true); return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    try {
+      const { error } = await db.rpc('add_prayer_count', {
+        p_mobile: mobile,
+        p_count:  count
+      });
+      if (error) throw error;
+
+      toast('Thank you! Your prayers have been recorded. 🙏');
+      document.getElementById('mobile').value = '';
+      document.getElementById('pcount').value  = '';
+      loadTotal();
+    } catch (e) {
+      toast('Something went wrong. Please try again.', true);
+      console.error(e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit Count';
+    }
+  }
+
+  /* ── TOAST ───────────────────────────────────────────── */
+  function toast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = isError ? 'error' : '';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3800);
+  }
+
+  /* ── INIT ────────────────────────────────────────────── */
+  loadTotal();
+</script>
+</body>
+</html>
